@@ -37,9 +37,16 @@ selected_camera = st.sidebar.selectbox(
     help="Selecione o tipo de câmera para carregar o modelo de detecção correspondente."
 )
 
-# Carrega o modelo com base na seleção
+# Função para carregar o modelo
 @st.cache_resource
 def load_model(model_path):
+    import torch
+    # Permitir carregamento completo no PyTorch 2.6+
+    try:
+        torch.serialization.add_safe_globals([YOLO])
+    except:
+        pass
+
     try:
         model = YOLO(model_path)
         return model
@@ -48,9 +55,9 @@ def load_model(model_path):
         st.info(f"Verifique se o arquivo do modelo '{model_path}' existe no diretório.")
         return None
 
-# Carrega o modelo dinamicamente
-model_path_to_load = camera_options[selected_camera]
-model = load_model(model_path_to_load)
+# Carregar o modelo baseado na escolha do usuário
+model_path = camera_options[selected_camera]
+model = load_model(model_path)
 
 # Slider de confiança
 confidence_threshold = st.sidebar.slider(
