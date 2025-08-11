@@ -14,11 +14,10 @@ st.set_page_config(
 )
 
 st.title("🌽 Detector de Sementes de Milho")
-st.markdown("Faça o upload de uma imagem ou use sua câmera para detectar sementes.")
+st.markdown("Faça o upload de uma ou várias imagens, ou use sua câmera para detectar sementes.")
 st.markdown("---")
 
-# ----------------- ALTERAÇÃO 1: SELEÇÃO DA CÂMERA/MODELO YOLO -----------------
-# Dicionário que mapeia o nome da câmera para o nome do arquivo do modelo
+# ----------------- MODELOS DISPONÍVEIS -----------------
 camera_options = {
     "Câmera Casual (RGB)": "best.pt",
     "Câmera RGN": "rgn.pt",
@@ -27,73 +26,79 @@ camera_options = {
     "RGB": "rgb.pt"
 }
 
-# ----------------- Sidebar para as configurações de detecção -----------------
+# ----------------- SIDEBAR -----------------
 st.sidebar.header("Opções de Detecção")
 
-# Caixa de seleção para escolher a câmera
 selected_camera = st.sidebar.selectbox(
     "Qual câmera foi utilizada?",
     list(camera_options.keys()),
     help="Selecione o tipo de câmera para carregar o modelo de detecção correspondente."
 )
 
-# Função para carregar o modelo
 @st.cache_resource
 def load_model(model_path):
     import torch
-    # Permitir carregamento completo no PyTorch 2.6+
     try:
         torch.serialization.add_safe_globals([YOLO])
     except:
         pass
-
     try:
         model = YOLO(model_path)
         return model
     except Exception as e:
         st.error(f"Erro ao carregar o modelo '{model_path}': {e}")
-        st.info(f"Verifique se o arquivo do modelo '{model_path}' existe no diretório.")
         return None
 
-# Carregar o modelo baseado na escolha do usuário
 model_path = camera_options[selected_camera]
 model = load_model(model_path)
 
-# Slider de confiança
 confidence_threshold = st.sidebar.slider(
     "Limiar de Confiança:",
     min_value=0.01,
     max_value=1.0,
     value=0.25,
-    step=0.01,
-    help="Ajuste para mostrar detecções mais (valor baixo) ou menos (valor alto) confiantes."
+    step=0.01
 )
 
-# ----------------- Estado da sessão -----------------
-if "seed_count" not in st.session_state:
-    st.session_state.seed_count = 0
-if "uploaded_image_count" not in st.session_state:
-    st.session_state.uploaded_image_count = None
+# ----------------- ESTADO DA SESSÃO -----------------
 if "run_camera" not in st.session_state:
     st.session_state.run_camera = False
 if "processed_images_history" not in st.session_state:
     st.session_state.processed_images_history = []
 if "camera_history" not in st.session_state:
     st.session_state.camera_history = []
+if "uploaded_files_processed" not in st.session_state:
+    st.session_state.uploaded_files_processed = False
 
-# ----------------- Função de detecção -----------------
+# ----------------- FUNÇÃO DE DETECÇÃO -----------------
 def predict_and_display(image, model, confidence, is_camera=False):
     seed_count = 0
+    inteiras_count = 0
+    pedradas_count = 0
     im_array = None
 
     if model:
-        results = model(image, conf=confidence)
+        # Adicionado verbose=False para suprimir a saída do terminal
+        results = model(image, conf=confidence, verbose=False)
         if results and results[0].boxes:
             seed_count = len(results[0].boxes)
+            
+            class_names = model.names
+            
+            for box in results[0].boxes:
+                class_id = int(box.cls)
+                class_name = class_names[class_id]
+                
+                if class_name == "inteira": 
+                    inteiras_count += 1
+                elif class_name == "pedrada": 
+                    pedradas_count += 1
+            
             try:
                 im_array = results[0].plot()
                 im_array = cv2.cvtColor(im_array, cv2.COLOR_BGR2RGB)
             except Exception as e:
+                # Se a plotagem falhar, ainda retorna as contagens
                 st.warning(f"Erro ao gerar imagem anotada: {e}")
                 im_array = None
 
@@ -102,52 +107,90 @@ def predict_and_display(image, model, confidence, is_camera=False):
             im_array = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         except:
             st.error("Erro ao processar imagem.")
-            return None, 0 if is_camera else 0
+            if is_camera:
+                return None, (0, 0, 0)
+            else:
+                return (0, 0, 0)
 
     if is_camera:
-        return im_array, seed_count
+        return im_array, (seed_count, inteiras_count, pedradas_count)
     else:
-        if im_array is not None:
-            st.image(im_array, caption="Imagem com Detecções", use_container_width=True)
+        # Apenas retorna as contagens para o loop de upload
+        return im_array, (seed_count, inteiras_count, pedradas_count)
 
-    return seed_count
-
-# ----------------- Interface principal com as abas -----------------
+# ----------------- INTERFACE COM ABAS -----------------
 if version.parse(st.__version__) >= version.parse("1.18.0"):
-    tab1, tab2, tab3 = st.tabs(["Upload de Imagem", "Câmera Ao Vivo", "Estatísticas"])
+    tab1, tab2, tab3 = st.tabs(["Upload de Imagem/Pasta", "Câmera Ao Vivo", "Estatísticas"])
 
     with tab1:
-        st.header("Upload de Imagem")
-        uploaded_file = st.file_uploader(
-            "Selecione uma imagem (.jpg, .jpeg, .png)",
-            type=['jpg', 'jpeg', 'png']
+        st.header("Upload de Imagem ou Pasta")
+        uploaded_files = st.file_uploader(
+            "Selecione uma ou mais imagens (.jpg, .jpeg, .png)",
+            type=['jpg', 'jpeg', 'png'],
+            accept_multiple_files=True
         )
-        if uploaded_file is not None:
-            file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
-            image = cv2.imdecode(file_bytes, 1)
-            st.subheader("Imagem Original:")
-            st.image(image, caption="Imagem Carregada", use_container_width=True, channels="BGR")
-            st.subheader("Resultado da Detecção:")
-            with st.spinner("Processando..."):
-                seed_count = predict_and_display(image, model, confidence_threshold)
-                st.session_state.uploaded_image_count = seed_count
 
-                st.session_state.processed_images_history.append({
-                    "Data/Hora": time.strftime("%Y-%m-%d %H:%M:%S"),
-                    "Fonte": "Upload",
-                    "Modelo": selected_camera,
-                    "Sementes": seed_count,
-                    "Limiar": f"{confidence_threshold:.2f}"
-                })
+        if uploaded_files:
+            # Processa as imagens apenas se houver novos uploads e não foram processadas ainda
+            if not st.session_state.uploaded_files_processed:
+                
+                # Barra de progresso para melhor feedback visual
+                progress_bar = st.progress(0)
+                status_text = st.empty()
+                
+                for i, uploaded_file in enumerate(uploaded_files):
+                    file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
+                    image = cv2.imdecode(file_bytes, 1)
+
+                    # Obtém a imagem anotada e as contagens
+                    annotated_image, (seed_count, inteiras_count, pedradas_count) = predict_and_display(image, model, confidence_threshold, is_camera=False)
+                    
+                    # Salva os valores em colunas separadas no histórico
+                    st.session_state.processed_images_history.append({
+                        "Data/Hora": time.strftime("%Y-%m-%d %H:%M:%S"),
+                        "Fonte": "Upload",
+                        "Arquivo": uploaded_file.name,
+                        "Modelo": selected_camera,
+                        "Total": seed_count,
+                        "Inteiras": inteiras_count,
+                        "Pedras": pedradas_count,
+                        "Limiar": f"{confidence_threshold:.2f}",
+                        "Imagem_Processada": annotated_image # Salva a imagem processada
+                    })
+                    
+                    # Atualiza a barra de progresso
+                    progress_value = (i + 1) / len(uploaded_files)
+                    progress_bar.progress(progress_value)
+                    status_text.text(f"Processando imagem {i+1} de {len(uploaded_files)}: {uploaded_file.name}")
+                
+                st.session_state.uploaded_files_processed = True
+                progress_bar.empty()
+                status_text.empty()
+                st.rerun()
+
+            # Exibe os resultados após o processamento
+            if st.session_state.uploaded_files_processed and st.session_state.processed_images_history:
+                st.subheader("Resultados do Upload")
+                num_columns = 3 # Número de colunas para exibir as imagens
+                cols = st.columns(num_columns)
+
+                for i, record in enumerate(st.session_state.processed_images_history):
+                    with cols[i % num_columns]:
+                        st.image(record["Imagem_Processada"], caption=f"Arquivo: {record['Arquivo']}\nTotal: {record['Total']}\nInteiras: {record['Inteiras']}\nPedras: {record['Pedras']}", use_container_width=True)
+                
+                if st.button("Limpar Imagens do Upload"):
+                    st.session_state.processed_images_history = []
+                    st.session_state.uploaded_files_processed = False
+                    st.rerun()
 
     with tab2:
         st.header("Câmera Ao Vivo")
-        st.warning("⚠️ Pode não funcionar no navegador mobile ou em ambientes como o Streamlit Cloud.")
+        st.warning("⚠️ Pode não funcionar no navegador mobile ou no Streamlit Cloud.")
         col_button1, col_button2 = st.columns(2)
         with col_button1:
-            start_button = st.button("📷 Iniciar Detecção Ao Vivo", key="live_detection_button")
+            start_button = st.button("📷 Iniciar Detecção Ao Vivo")
         with col_button2:
-            stop_button = st.button("🛑 Parar Detecção", key="stop_detection_button")
+            stop_button = st.button("🛑 Parar Detecção")
         if start_button:
             st.session_state.run_camera = True
         if stop_button:
@@ -168,30 +211,31 @@ if version.parse(st.__version__) >= version.parse("1.18.0"):
                         st.session_state.run_camera = False
                         break
 
-                    annotated_frame, seed_count = predict_and_display(frame, model, confidence_threshold, is_camera=True)
-                    st.session_state.seed_count = seed_count
+                    # Captura os 3 valores retornados pela função
+                    annotated_frame, (seed_count, inteiras_count, pedradas_count) = predict_and_display(frame, model, confidence_threshold, is_camera=True)
+                    
+                    # Salva os valores no histórico (pode ser otimizado para salvar a cada X frames)
+                    st.session_state.camera_history.append({
+                        "Data/Hora": time.strftime("%Y-%m-%d %H:%M:%S"),
+                        "Fonte": "Câmera",
+                        "Modelo": selected_camera,
+                        "Total": seed_count,
+                        "Inteiras": inteiras_count,
+                        "Pedras": pedradas_count,
+                        "Limiar": f"{confidence_threshold:.2f}"
+                    })
 
                     if annotated_frame is not None:
                         frame_placeholder.image(annotated_frame, channels="RGB", use_container_width=True)
                     else:
                         st.warning("⚠️ Imagem da câmera não pôde ser processada.")
-
-                    st.session_state.camera_history.append({
-                        "Data/Hora": time.strftime("%Y-%m-%d %H:%M:%S"),
-                        "Fonte": "Câmera",
-                        "Modelo": selected_camera,
-                        "Sementes": seed_count,
-                        "Limiar": f"{confidence_threshold:.2f}"
-                    })
-
-                cap.release()
-                cv2.destroyAllWindows()
-                frame_placeholder.empty()
+            
+            cap.release()
+            cv2.destroyAllWindows()
+            frame_placeholder.empty()
 
     with tab3:
         st.header("Estatísticas")
-        
-        # ----------------- ALTERAÇÃO 2: FILTRO POR DATA -----------------
         st.subheader("Filtrar por Período")
         col_start, col_end = st.columns(2)
         with col_start:
@@ -199,20 +243,54 @@ if version.parse(st.__version__) >= version.parse("1.18.0"):
         with col_end:
             end_date = st.date_input("Data de Fim", value=pd.to_datetime("today").date())
         
+        st.markdown("---")
+        st.subheader("Resumo do Período Selecionado")
+        total_inteiras = 0
+        total_pedras = 0
+
+        # Calcula o resumo do período para os dados de upload
+        if st.session_state.processed_images_history:
+            df_upload = pd.DataFrame(st.session_state.processed_images_history).drop(columns=['Imagem_Processada'])
+            df_upload['Data/Hora'] = pd.to_datetime(df_upload['Data/Hora'])
+            filtered_upload = df_upload[
+                (df_upload['Data/Hora'].dt.date >= start_date) &
+                (df_upload['Data/Hora'].dt.date <= end_date)
+            ]
+            total_inteiras += filtered_upload['Inteiras'].sum()
+            total_pedras += filtered_upload['Pedras'].sum()
+
+        # Calcula o resumo do período para os dados da câmera
+        if st.session_state.camera_history:
+            df_camera = pd.DataFrame(st.session_state.camera_history)
+            df_camera['Data/Hora'] = pd.to_datetime(df_camera['Data/Hora'])
+            filtered_camera = df_camera[
+                (df_camera['Data/Hora'].dt.date >= start_date) &
+                (df_camera['Data/Hora'].dt.date <= end_date)
+            ]
+            total_inteiras += filtered_camera['Inteiras'].sum()
+            total_pedras += filtered_camera['Pedras'].sum()
+
+        col_inteiras, col_pedras = st.columns(2)
+        with col_inteiras:
+            st.metric(label="Sementes Inteiras (Total)", value=int(total_inteiras))
+        with col_pedras:
+            st.metric(label="Pedras (Total)", value=int(total_pedras))
+
+        st.markdown("---")
+
         # Histórico de Upload
         st.markdown("### Histórico de Análises de Imagens (Upload)")
         if st.session_state.processed_images_history:
-            df_history_upload = pd.DataFrame(st.session_state.processed_images_history)
+            df_history_upload = pd.DataFrame(st.session_state.processed_images_history).drop(columns=['Imagem_Processada'])
             df_history_upload['Data/Hora'] = pd.to_datetime(df_history_upload['Data/Hora'])
-            
             filtered_df_upload = df_history_upload[
                 (df_history_upload['Data/Hora'].dt.date >= start_date) &
                 (df_history_upload['Data/Hora'].dt.date <= end_date)
             ]
-            
             st.dataframe(filtered_df_upload, use_container_width=True)
-            if st.button("Limpar Histórico de Upload", key="clear_upload"):
+            if st.button("Limpar Histórico de Upload"):
                 st.session_state.processed_images_history = []
+                st.session_state.uploaded_files_processed = False
                 st.rerun()
         else:
             st.info("Nenhuma imagem foi processada ainda.")
@@ -224,14 +302,12 @@ if version.parse(st.__version__) >= version.parse("1.18.0"):
         if st.session_state.camera_history:
             df_history_camera = pd.DataFrame(st.session_state.camera_history)
             df_history_camera['Data/Hora'] = pd.to_datetime(df_history_camera['Data/Hora'])
-            
             filtered_df_camera = df_history_camera[
                 (df_history_camera['Data/Hora'].dt.date >= start_date) &
                 (df_history_camera['Data/Hora'].dt.date <= end_date)
             ]
-
             st.dataframe(filtered_df_camera, use_container_width=True)
-            if st.button("Limpar Histórico da Câmera", key="clear_camera"):
+            if st.button("Limpar Histórico da Câmera"):
                 st.session_state.camera_history = []
                 st.rerun()
         else:
