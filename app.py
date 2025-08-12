@@ -7,6 +7,7 @@ from packaging import version
 import pandas as pd
 import torch
 from ultralytics.nn.tasks import DetectionModel
+from torch.nn import Sequential
 
 st.set_page_config(
     page_title="Detector de Sementes",
@@ -40,7 +41,7 @@ selected_camera = st.sidebar.selectbox(
 def load_model(model_path):
     # Adiciona classe customizada para deserialização segura do PyTorch 2.6+
     try:
-        torch.serialization.add_safe_globals([DetectionModel])
+        torch.serialization.add_safe_globals([DetectionModel, Sequential])
     except Exception:
         pass
     try:
