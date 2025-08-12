@@ -5,6 +5,8 @@ import numpy as np
 import time
 from packaging import version
 import pandas as pd
+import torch
+from ultralytics.nn.tasks import DetectionModel
 
 st.set_page_config(
     page_title="Detector de Sementes",
@@ -34,11 +36,11 @@ selected_camera = st.sidebar.selectbox(
     help="Selecione o tipo de câmera para carregar o modelo de detecção correspondente."
 )
 
-@st.cache_resource
+@st.cache_resource(show_spinner=False)
 def load_model(model_path):
-    import torch
+    # Adiciona classe customizada para deserialização segura do PyTorch 2.6+
     try:
-        torch.serialization.add_safe_globals([YOLO])
+        torch.serialization.add_safe_globals([DetectionModel])
     except Exception:
         pass
     try:
@@ -60,20 +62,17 @@ confidence_threshold = st.sidebar.slider(
 )
 
 # ----------------- ESTADO DA SESSÃO -----------------
-if "run_camera" not in st.session_state:
-    st.session_state.run_camera = False
-if "processed_images_history" not in st.session_state:
-    st.session_state.processed_images_history = []  # histórico completo para estatísticas
-if "processed_images_display" not in st.session_state:
-    st.session_state.processed_images_display = []  # imagens exibidas na aba Upload
-if "camera_history" not in st.session_state:
-    st.session_state.camera_history = []
-if "uploaded_files_processed" not in st.session_state:
-    st.session_state.uploaded_files_processed = False
-if "uploader_key" not in st.session_state:
-    st.session_state.uploader_key = 0
-if "last_uploaded_file_names" not in st.session_state:
-    st.session_state.last_uploaded_file_names = None
+for key, default_value in {
+    "run_camera": False,
+    "processed_images_history": [],
+    "processed_images_display": [],
+    "camera_history": [],
+    "uploaded_files_processed": False,
+    "uploader_key": 0,
+    "last_uploaded_file_names": None,
+}.items():
+    if key not in st.session_state:
+        st.session_state[key] = default_value
 
 # ----------------- FUNÇÃO DE DETECÇÃO -----------------
 def predict_and_display(image, model, confidence, is_camera=False):
@@ -219,6 +218,7 @@ if version.parse(st.__version__) >= version.parse("1.18.0"):
                 st.session_state.last_uploaded_file_names = []
                 st.session_state.uploader_key += 1
                 st.rerun()
+
         else:
             if show_saved_history and st.session_state.processed_images_history:
                 st.subheader("Resultados Salvos (Histórico)")
@@ -237,106 +237,107 @@ if version.parse(st.__version__) >= version.parse("1.18.0"):
                 st.info("Nenhum arquivo carregado. Faça upload para analisar ou marque 'Mostrar histórico salvo'.")
 
     # ----------------- ABA 2 - CÂMERA -----------------
-    with tab2:
-        st.header("Câmera Ao Vivo")
-        col_button1, col_button2 = st.columns(2)
-        with col_button1:
-            start_button = st.button("📷 Iniciar Detecção Ao Vivo", key="start_camera")
-        with col_button2:
-            stop_button = st.button("🛑 Parar Detecção", key="stop_camera")
-        if start_button:
-            st.session_state.run_camera = True
-        if stop_button:
-            st.session_state.run_camera = False
+with tab2:
+    st.header("Câmera Ao Vivo - Captura de Fotos")
 
-        frame_placeholder = st.empty()
-        if st.session_state.run_camera:
-            cap = cv2.VideoCapture(0)
-            if not cap.isOpened():
-                st.error("❌ Não foi possível acessar a câmera.")
-                st.session_state.run_camera = False
-            else:
-                while st.session_state.run_camera:
-                    ret, frame = cap.read()
-                    if not ret:
-                        break
-                    annotated_frame, (seed_count, inteiras_count, predadas_count) = predict_and_display(
-                        frame, model, confidence_threshold, is_camera=True
-                    )
-                    st.session_state.camera_history.append({
-                        "Data/Hora": time.strftime("%Y-%m-%d %H:%M:%S"),
-                        "Fonte": "Câmera",
-                        "Modelo": selected_camera,
-                        "Total": seed_count,
-                        "Inteiras": inteiras_count,
-                        "Predadas": predadas_count,
-                        "Limiar": f"{confidence_threshold:.2f}"
-                    })
-                    if annotated_frame is not None:
-                        frame_placeholder.image(annotated_frame, channels="RGB", use_container_width=True)
-            cap.release()
-            cv2.destroyAllWindows()
+    camera_input = st.camera_input("Abra a câmera e tire fotos para detectar sementes")
 
-    # ----------------- ABA 3 - ESTATÍSTICAS -----------------
-    with tab3:
-        st.header("Estatísticas")
-        st.subheader("Filtrar por Período")
-        col_start, col_end = st.columns(2)
-        with col_start:
-            start_date = st.date_input("Data de Início", value=pd.to_datetime("today").date())
-        with col_end:
-            end_date = st.date_input("Data de Fim", value=pd.to_datetime("today").date())
+    if camera_input is not None:
+        file_bytes = np.asarray(bytearray(camera_input.read()), dtype=np.uint8)
+        frame = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
+        annotated_frame, (seed_count, inteiras_count, predadas_count) = predict_and_display(
+            frame, model, confidence_threshold, is_camera=True
+        )
+        st.image(annotated_frame, channels="RGB", use_container_width=True)
 
-        st.markdown("---")
-        st.subheader("Resumo do Período Selecionado")
-        total_inteiras = 0
-        total_predadas = 0
+        # Salva no histórico
+        st.session_state.camera_history.append({
+            "Data/Hora": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "Fonte": "Câmera Foto",
+            "Modelo": selected_camera,
+            "Total": seed_count,
+            "Inteiras": inteiras_count,
+            "Predadas": predadas_count,
+            "Limiar": f"{confidence_threshold:.2f}"
+        })
+    else:
+        st.info("Use o botão acima para capturar uma foto da câmera.")
 
-        if st.session_state.processed_images_history:
-            df_upload = pd.DataFrame(st.session_state.processed_images_history).drop(columns=['Imagem_Processada', 'Imagem_Original'], errors='ignore')
-            df_upload['Data/Hora'] = pd.to_datetime(df_upload['Data/Hora'])
-            filtered_upload = df_upload[
-                (df_upload['Data/Hora'].dt.date >= start_date) &
-                (df_upload['Data/Hora'].dt.date <= end_date)
-            ]
-            total_inteiras += filtered_upload['Inteiras'].sum()
-            total_predadas += filtered_upload['Predadas'].sum()
+# ---------------- ESTATÍSTICAS MELHORADAS ----------------
 
-        if st.session_state.camera_history:
-            df_camera = pd.DataFrame(st.session_state.camera_history)
-            df_camera['Data/Hora'] = pd.to_datetime(df_camera['Data/Hora'])
-            filtered_camera = df_camera[
-                (df_camera['Data/Hora'].dt.date >= start_date) &
-                (df_camera['Data/Hora'].dt.date <= end_date)
-            ]
-            total_inteiras += filtered_camera['Inteiras'].sum()
-            total_predadas += filtered_camera['Predadas'].sum()
+with tab3:
+    st.header("Estatísticas")
+    st.subheader("Filtrar por Período")
+    col_start, col_end = st.columns(2)
+    with col_start:
+        start_date = st.date_input("Data de Início", value=pd.to_datetime("today").date())
+    with col_end:
+        end_date = st.date_input("Data de Fim", value=pd.to_datetime("today").date())
 
-        col_inteiras, col_predadas = st.columns(2)
-        with col_inteiras:
-            st.metric(label="Sementes Inteiras (Total)", value=int(total_inteiras))
-        with col_predadas:
-            st.metric(label="Predadas (Total)", value=int(total_predadas))
+    st.markdown("---")
+    st.subheader("Resumo do Período Selecionado")
+    total_inteiras = 0
+    total_predadas = 0
 
-        st.markdown("---")
+    def process_dataframe(history):
+        if not history:
+            return pd.DataFrame()
+        df = pd.DataFrame(history)
+        if 'Data/Hora' in df.columns:
+            df['Data/Hora'] = pd.to_datetime(df['Data/Hora'], errors='coerce')
+        # Converter contagens para int, preencher nulos com 0
+        for col in ['Inteiras', 'Predadas']:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0).astype(int)
+        return df
 
-        st.markdown("### Histórico de Análises de Imagens (Upload)")
-        if st.session_state.processed_images_history:
-            st.dataframe(filtered_upload, use_container_width=True)
-            if st.button("🗑️ Limpar Histórico de Uploads", key="limpar_hist_upload"):
-                st.session_state.processed_images_history.clear()
-                st.rerun()
+    df_upload = process_dataframe(st.session_state.processed_images_history)
+    df_camera = process_dataframe(st.session_state.camera_history)
+
+    filtered_upload = df_upload[
+        (df_upload['Data/Hora'].dt.date >= start_date) &
+        (df_upload['Data/Hora'].dt.date <= end_date)
+    ] if not df_upload.empty else pd.DataFrame()
+
+    filtered_camera = df_camera[
+        (df_camera['Data/Hora'].dt.date >= start_date) &
+        (df_camera['Data/Hora'].dt.date <= end_date)
+    ] if not df_camera.empty else pd.DataFrame()
+
+    total_inteiras += filtered_upload['Inteiras'].sum() if not filtered_upload.empty else 0
+    total_inteiras += filtered_camera['Inteiras'].sum() if not filtered_camera.empty else 0
+
+    total_predadas += filtered_upload['Predadas'].sum() if not filtered_upload.empty else 0
+    total_predadas += filtered_camera['Predadas'].sum() if not filtered_camera.empty else 0
+
+    col_inteiras, col_predadas = st.columns(2)
+    with col_inteiras:
+        st.metric(label="Sementes Inteiras (Total)", value=int(total_inteiras))
+    with col_predadas:
+        st.metric(label="Predadas (Total)", value=int(total_predadas))
+
+    st.markdown("---")
+
+    st.markdown("### Histórico de Análises de Imagens (Upload)")
+    if not filtered_upload.empty:
+        st.dataframe(filtered_upload.drop(columns=['Imagem_Processada', 'Imagem_Original'], errors='ignore'), use_container_width=True)
+        if st.button("🗑️ Limpar Histórico de Uploads", key="limpar_hist_upload"):
+            st.session_state.processed_images_history.clear()
+            st.rerun()
         else:
-            st.info("Nenhuma imagem foi processada ainda.")
+          st.info("Nenhuma imagem foi processada no período selecionado.")
 
-        st.markdown("---")
-        st.markdown("### Histórico de Análises da Câmera (Ao Vivo)")
-        if st.session_state.camera_history:
-            st.dataframe(filtered_camera, use_container_width=True)
-            if st.button("🗑️ Limpar Histórico da Câmera", key="limpar_hist_camera"):
-                st.session_state.camera_history.clear()
-                st.rerun()
+    st.markdown("---")
+    st.markdown("### Histórico de Análises da Câmera (Ao Vivo)")
+    if not filtered_camera.empty:
+        st.dataframe(filtered_camera, use_container_width=True)
+        if st.button("🗑️ Limpar Histórico da Câmera", key="limpar_hist_camera"):
+            st.session_state.camera_history.clear()
+            st.rerun()
         else:
-            st.info("A contagem da câmera será mostrada aqui.")
-else:
-    st.warning("Atualize o Streamlit para >= 1.18.0 para usar abas.")
+          st.info("A contagem da câmera será mostrada aqui.")
+    
+    else:
+     st.warning("Atualize o Streamlit para >= 1.18.0 para usar abas.")
+
+    
