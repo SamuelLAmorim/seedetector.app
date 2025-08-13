@@ -81,6 +81,7 @@ def predict_and_display(image, model, confidence, is_camera=False):
     seed_count = 0
     inteiras_count = 0
     predadas_count = 0
+    quebradas_count = 0
     im_array = None
 
     if model is not None:
@@ -105,6 +106,9 @@ def predict_and_display(image, model, confidence, is_camera=False):
                     inteiras_count += 1
                 elif class_name == "predada":
                     predadas_count += 1
+                elif class_name == "quebrada":
+                    quebradas_count += 1
+                         
 
             try:
                 im_array = results[0].plot()
@@ -118,9 +122,9 @@ def predict_and_display(image, model, confidence, is_camera=False):
             im_array = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         except Exception:
             st.error("Erro ao processar imagem.")
-            return None, (0, 0, 0)
+            return None, (0, 0, 0, 0)
 
-    return im_array, (seed_count, inteiras_count, predadas_count)
+    return im_array, (seed_count, inteiras_count, predadas_count, quebradas_count)
 
 # ----------------- INTERFACE COM ABAS -----------------
 if version.parse(st.__version__) >= version.parse("1.18.0"):
@@ -154,7 +158,7 @@ if version.parse(st.__version__) >= version.parse("1.18.0"):
                 file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
                 image = cv2.imdecode(file_bytes, 1)
 
-                annotated_image, (seed_count, inteiras_count, predadas_count) = predict_and_display(
+                annotated_image, (seed_count, inteiras_count, predadas_count, quebradas_count) = predict_and_display(
                     image, model, confidence_threshold, is_camera=False
                 )
 
@@ -166,6 +170,7 @@ if version.parse(st.__version__) >= version.parse("1.18.0"):
                     "Total": seed_count,
                     "Inteiras": inteiras_count,
                     "Predadas": predadas_count,
+                    "Quebradas": quebradas_count,
                     "Limiar": f"{confidence_threshold:.2f}",
                     "Imagem_Processada": annotated_image,
                     "Imagem_Original": image
@@ -198,7 +203,7 @@ if version.parse(st.__version__) >= version.parse("1.18.0"):
 
                     if st.button(f"🔄 Refazer Análise - {record['Arquivo']}", key=f"refazer_{i}"):
                         image_to_reprocess = record["Imagem_Original"]
-                        annotated_image, (seed_count, inteiras_count, predadas_count) = predict_and_display(
+                        annotated_image, (seed_count, inteiras_count, predadas_count, quebradas_count) = predict_and_display(
                             image_to_reprocess, model, confidence_threshold, is_camera=False
                         )
                         updated_record = record.copy()
@@ -207,6 +212,7 @@ if version.parse(st.__version__) >= version.parse("1.18.0"):
                             "Total": seed_count,
                             "Inteiras": inteiras_count,
                             "Predadas": predadas_count,
+                            "Quebradas": quebradas_count,
                             "Limiar": f"{confidence_threshold:.2f}",
                             "Imagem_Processada": annotated_image
                         })
@@ -247,7 +253,7 @@ with tab2:
     if camera_input is not None:
         file_bytes = np.asarray(bytearray(camera_input.read()), dtype=np.uint8)
         frame = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
-        annotated_frame, (seed_count, inteiras_count, predadas_count) = predict_and_display(
+        annotated_frame, (seed_count, inteiras_count, predadas_count, quebradas_count) = predict_and_display(
             frame, model, confidence_threshold, is_camera=True
         )
         st.image(annotated_frame, channels="RGB", use_container_width=True)
@@ -260,6 +266,7 @@ with tab2:
             "Total": seed_count,
             "Inteiras": inteiras_count,
             "Predadas": predadas_count,
+            "Quebradas": quebradas_count,
             "Limiar": f"{confidence_threshold:.2f}"
         })
     else:
@@ -280,6 +287,7 @@ with tab3:
     st.subheader("Resumo do Período Selecionado")
     total_inteiras = 0
     total_predadas = 0
+    total_quebradas = 0
 
     def process_dataframe(history):
         if not history:
@@ -288,7 +296,7 @@ with tab3:
         if 'Data/Hora' in df.columns:
             df['Data/Hora'] = pd.to_datetime(df['Data/Hora'], errors='coerce')
         # Converter contagens para int, preencher nulos com 0
-        for col in ['Inteiras', 'Predadas']:
+        for col in ['Inteiras', 'Predadas', 'Quebradas']:
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0).astype(int)
         return df
@@ -312,11 +320,16 @@ with tab3:
     total_predadas += filtered_upload['Predadas'].sum() if not filtered_upload.empty else 0
     total_predadas += filtered_camera['Predadas'].sum() if not filtered_camera.empty else 0
 
-    col_inteiras, col_predadas = st.columns(2)
+    total_quebradas += filtered_upload['Quebradas'].sum() if not filtered_upload.empty else 0
+    total_quebradas += filtered_camera['Quebradas'].sum() if not filtered_camera.empty else 0
+
+    col_inteiras, col_predadas, col_quebradas = st.columns(3)
     with col_inteiras:
         st.metric(label="Sementes Inteiras (Total)", value=int(total_inteiras))
     with col_predadas:
         st.metric(label="Predadas (Total)", value=int(total_predadas))
+    with col_quebradas:
+        st.metric(label="Quebradas (Total)", value=int(total_quebradas))
 
     st.markdown("---")
 
@@ -326,7 +339,7 @@ with tab3:
         if st.button("🗑️ Limpar Histórico de Uploads", key="limpar_hist_upload"):
             st.session_state.processed_images_history.clear()
             st.rerun()
-        else:
+    else:
           st.info("Nenhuma imagem foi processada no período selecionado.")
 
     st.markdown("---")
