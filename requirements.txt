@@ -1,5 +1,7 @@
-ultralytics==8.2.14
+streamlit
+ultralytics
 opencv-python-headless
 numpy
 pandas
 packaging
+bcrypt
