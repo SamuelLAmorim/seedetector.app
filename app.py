@@ -181,7 +181,7 @@ def main_app():
 
     # ----------------- MODELOS DISPONÍVEIS -----------------
     camera_options = {
-        "Câmera Casual (RGB)": "best.pt",
+        "Câmera Casual (RGB)": "models/best.pt",
         "Câmera RGN": "rgn.pt",
         "Câmera RE": "re.pt",
         "Câmera NIR": "nir.pt",
