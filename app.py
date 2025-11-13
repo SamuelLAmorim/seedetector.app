@@ -8,6 +8,7 @@ import numpy as np
 import cv2
 from packaging import version
 from PIL import Image
+import altair as alt
 
 # ===== Imports do detector (só serão usados após login) - Mantidos =====
 from ultralytics import YOLO
@@ -714,14 +715,39 @@ def main_app():
             st.markdown("---")
             
             # Gráfico de barras simples
-            if not filtered_df.empty and total_global > 0:
-                st.subheader("Distribuição dos Tipos de Sementes")
-                data_chart = pd.DataFrame({
-                    'Tipo': ['Inteiras', 'Predadas', 'Quebradas'],
-                    'Contagem': [total_inteiras, total_predadas, total_quebradas]
-                })
-                # Usando bar_chart do Streamlit (mais simples e rápido)
-                st.bar_chart(data_chart.set_index('Tipo'), color=['#3cb371', '#ff4b4b', '#ffaa00']) # Cores temáticas
+        if not filtered_df.empty and total_global > 0:
+            st.subheader("Distribuição dos Tipos de Sementes")
+            
+            data_chart = pd.DataFrame({
+                'Tipo': ['Inteiras', 'Predadas', 'Quebradas'],
+                'Contagem': [total_inteiras, total_predadas, total_quebradas]
+            })
+            
+            # 1. Defina o esquema de cores usando alt.Scale
+            color_scale = alt.Scale(
+                domain=['Inteiras', 'Predadas', 'Quebradas'],
+                range=['#3cb371', '#ff4b4b', '#ffaa00']
+            )
+        
+            # 2. Crie o gráfico Altair
+            chart = alt.Chart(data_chart).mark_bar().encode(
+                # Eixo X usa a coluna 'Tipo'
+                x=alt.X('Tipo:N', axis=alt.Axis(title='Tipo de Semente')),
+                # Eixo Y usa a coluna 'Contagem'
+                y=alt.Y('Contagem:Q', axis=alt.Axis(title='Número de Sementes')),
+                # Cor é mapeada pela coluna 'Tipo', usando a escala definida acima
+                color=alt.Color('Tipo:N', scale=color_scale, legend=None),
+                # Adiciona tooltip para exibir os dados ao passar o mouse
+                tooltip=['Tipo', 'Contagem']
+            ).properties(
+                # Define o título e a largura do gráfico
+                title="Contagem de Sementes por Tipo"
+            ).interactive() # Permite zoom e pan
+        
+            # 3. Renderize o gráfico no Streamlit
+            st.altair_chart(chart, use_container_width=True)
+        
+    
                 
                 
             st.markdown("### 📜 Detalhes do Histórico de Análises")
