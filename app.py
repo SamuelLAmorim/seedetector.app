@@ -304,9 +304,9 @@ def main_app():
     # ----------------- SIDEBAR - Opções de Detecção -----------------
     st.sidebar.header("⚙️ Opções de Detecção")
     selected_camera = st.sidebar.selectbox(
-        "Qual câmera foi utilizada?",
+        "📸Qual câmera foi utilizada?",
         list(camera_options.keys()),
-        help="Selecione o tipo de câmera para carregar o modelo de detecção correspondente.",
+        help="Selecione o tipo de câmera para carregar o modelo de detecção correspondente.📸",
         key="camera_select" # Adicionei key para evitar warning
     )
 
