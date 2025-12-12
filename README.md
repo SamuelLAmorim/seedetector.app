@@ -94,17 +94,17 @@ python3 -m venv venv
 source venv/bin/activate
 ```
 
-###📦 3. Instalar dependências
+### 📦 3. Instalar dependências
 ```bash
 pip install -r requirements.txt
 ```
 
-###▶️ 4. Executar o sistema
+### ▶️ 4. Executar o sistema
 ```bash
 python -m streamlit run app.py
 ```
 
-###🌱 Uso da Aplicação
+### 🌱 Uso da Aplicação
 
 -Escolha o tipo de câmera
 
