@@ -114,7 +114,7 @@ python -m streamlit run app.py
 
 -Verifique classes, caixas delimitadoras e níveis de confiança
 
-###🤝 Contribuições
+### 🤝 Contribuições
 
 Contribuições são bem-vindas!
 Sinta-se à vontade para abrir issues, enviar pull requests ou sugerir melhorias.
