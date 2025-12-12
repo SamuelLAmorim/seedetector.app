@@ -1,119 +1,123 @@
-🌱 Agribusiness Seed Selection App
+# 🌱 Agribusiness Seed Selection App
 
-Um aplicativo/site desenvolvido para auxiliar na seleção e análise de sementes agrícolas, começando pelas sementes de milho, utilizando tecnologia YOLO (You Only Look Once) para detecção de objetos com alta precisão.
+Um aplicativo/site desenvolvido para auxiliar na seleção e análise de sementes agrícolas, começando pelas sementes de milho, utilizando tecnologia **YOLO (You Only Look Once)** para detecção de objetos com alta precisão.
 
 O sistema é compatível com vários tipos de câmeras, permitindo diferentes cenários de análise no agronegócio.
 
-📸 Tipos de Câmeras Compatíveis
-Tipo de Câmera	Uso Principal	Vantagem
-📱 Casual	Celular, GoPro	Detecção rápida e acessível
-🌈 RGN	Imagem agrícola especializada	Análise avançada de saúde da planta
-🎨 RGB	Câmera de cor padrão	Detecção de uso geral
-🌌 NIR	Infravermelho Próximo	Monitoramento de estresse e hidratação
-🔴 RE	Red Edge	Análise de saúde da vegetação
-📊 Status de Desenvolvimento
+---
 
-Casual: ✔️ Implementado
+## 📸 Tipos de Câmeras Compatíveis
 
-RGN, RGB, NIR, RE: 🔧 Em Desenvolvimento
+| Tipo de Câmera | Uso Principal | Vantagem |
+|----------------|---------------|----------|
+| 📱 **Casual** | Celular, GoPro | Detecção rápida e acessível |
+| 🌈 **RGN** | Imagem agrícola especializada | Análise avançada de saúde da planta |
+| 🎨 **RGB** | Câmera de cor padrão | Detecção de uso geral |
+| 🌌 **NIR** | Infravermelho Próximo | Monitoramento de estresse e hidratação |
+| 🔴 **RE** | Red Edge | Análise de saúde da vegetação |
 
-🚀 Funcionalidades
+### ✔️ Status de Desenvolvimento
 
-✔️ Detecção baseada em YOLOv8
+- **Casual:** ✔️ Implementado  
+- **RGN, RGB, NIR, RE:** 🔧 Em Desenvolvimento  
 
-✔️ Interface amigável em Streamlit
+---
 
-✔️ Menu para seleção de tipo de câmera
+## 🚀 Funcionalidades
 
-✔️ Análise em tempo real via webcam
+- ✔️ Detecção baseada em **YOLOv8**  
+- ✔️ Interface amigável em **Streamlit**  
+- ✔️ Menu de seleção do tipo de câmera  
+- ✔️ Análise em tempo real via webcam  
+- ✔️ Suporte a imagens estáticas e vídeo  
+- ✔️ Compatível com desktop e mobile  
+- 🔧 Versão Android — Em desenvolvimento  
 
-✔️ Suporte a imagens estáticas e vídeo
+---
 
-✔️ Compatível com desktop e dispositivos móveis
+## 🛠️ Tecnologias Utilizadas
 
-🔧 Versão mobile (Android) — em desenvolvimento
+- **Python** — Backend e processamento  
+- **YOLOv8 (Ultralytics)** — Detecção de objetos  
+- **OpenCV** — Processamento de imagens e vídeo  
+- **Streamlit** — Interface web  
+- **Android Studio** — Versão mobile (opcional)  
 
-🛠️ Tecnologias Utilizadas
+---
 
-Python — Backend e processamento
+## 🎯 Objetivo
 
-YOLOv8 (Ultralytics) — Detecção de objetos
+O objetivo deste sistema é:
 
-OpenCV — Processamento de imagens
+- Melhorar a análise e seleção de sementes  
+- Entregar precisão, rapidez e acessibilidade  
+- Fornecer dados em tempo real  
+- Auxiliar agricultores, agrônomos e pesquisadores  
 
-Streamlit — Interface Web
+---
 
-Android Studio — Versão mobile (opcional)
+## 🖥️ Fluxo de Uso
 
-🎯 Objetivo
+1. Selecionar o tipo de câmera  
+2. Escolher:
+   - Upload de imagem  
+   - Webcam ao vivo  
+3. O modelo YOLO analisa a imagem  
+4. O sistema exibe:
+   - Classes  
+   - Confiança  
+   - Caixas delimitadoras  
+   - Resultados em tempo real  
 
-O objetivo é simplificar e agilizar a seleção de sementes no agronegócio, oferecendo:
+---
 
-Maior precisão nas análises
+## 📦 Passo a Passo de Instalação
 
-Detecção rápida e acessível
-
-Suporte a múltiplos tipos de câmera
-
-Informações em tempo real para agricultores, agrônomos e pesquisadores
-
-🖥️ Fluxo de Uso (Exemplo)
-
-Selecionar o tipo de câmera
-
-Escolher entre:
-
-Upload de imagem
-
-Uso da câmera ao vivo
-
-O modelo YOLO faz a detecção
-
-O sistema exibe:
-
-Caixa delimitadora
-
-Classe da semente
-
-Porcentagem de confiança
-
-Visualização em tempo real
-
-📦 Passo a Passo de Instalação
-🔽 1. Baixar o repositório
+### 🔽 1. Baixar o repositório
+```bash 
 git clone https://github.com/your-repo/agribusiness-seed-selection.git
 cd agribusiness-seed-selection
+```
 
-🧪 2. Criar ambiente virtual (opcional, recomendado)
-Windows
+### 🧪 2. Criar ambiente virtual (opcional, recomendado)
+```bash
+# 🪟 Windows
 python -m venv venv
 venv\Scripts\activate
 
-Linux/Mac
+# 🐧 Linux
 python3 -m venv venv
 source venv/bin/activate
 
-📦 3. Instalar dependências
+# 🍎 Mac
+python3 -m venv venv
+source venv/bin/activate
+```
+
+###📦 3. Instalar dependências
+```bash
 pip install -r requirements.txt
+```
 
-▶️ 4. Executar o sistema (via Streamlit)
-streamlit run app.py
+###▶️ 4. Executar o sistema
+```bash
+python -m streamlit run app.py
+```
 
+###🌱 Uso da Aplicação
 
-Acessar no navegador:
-http://localhost:8501
+-Escolha o tipo de câmera
 
-🌱 Uso da Aplicação
+-Faça upload da imagem ou ative a webcam
 
-Escolha o tipo de câmera
+-Aguarde a análise YOLO
 
-Faça upload de imagem ou ative a webcam
+-Verifique classes, caixas delimitadoras e níveis de confiança
 
-Aguarde a detecção YOLO
-
-Veja os resultados com porcentagem de confiança
-
-🤝 Contribuições
+###🤝 Contribuições
 
 Contribuições são bem-vindas!
 Sinta-se à vontade para abrir issues, enviar pull requests ou sugerir melhorias.
+
+### Feito por: 
+## Samuel Leal Amorim
